@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "nse-day-trader-skills",
+  "description": "Portable Indian NSE analysis and broker-neutral manual trade-planning skills",
+  "owner": {
+    "name": "sanT-0",
+    "url": "https://github.com/sanT-0"
+  },
+  "plugins": [
+    {
+      "name": "nse-day-trader-skills",
+      "description": "NSE scanner, news, flows, earnings, entries, exits, simulation, sizing, risk gate, alerts, and broker-neutral manual tickets.",
+      "source": "./",
+      "category": "productivity",
+      "homepage": "https://github.com/sanT-0/nse-day-trader-skills"
+    }
+  ]
+}

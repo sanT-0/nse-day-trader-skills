@@ -1,0 +1,54 @@
+name: Bug report
+description: Report an incorrect calculation, parser failure, or workflow bug
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not include Groww tokens, OTPs, PAN, account IDs, holdings, or other secrets.**
+  - type: input
+    id: skill
+    attributes:
+      label: Skill ID
+      placeholder: nse-trader-risk
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v0.1.0 or commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options: [Windows, macOS, Linux, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Include a minimal command and sanitized input. Never include credentials.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Rule or data source
+      description: For charges, holidays, lots, or exchange rules, link the authoritative source and date.

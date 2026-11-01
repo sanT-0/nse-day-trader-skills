@@ -1,0 +1,35 @@
+{
+  "name": "nse-day-trader-skills",
+  "version": "0.2.0",
+  "license": "MIT",
+  "runtime": {
+    "python": ">=3.9",
+    "dependencies": "standard-library-only",
+    "execution": "manual-only"
+  },
+  "interfaces": [
+    "standalone-python-cli",
+    "portable-skill-folders",
+    "generic-agents-skills-directory",
+    "custom-destination-install",
+    "zip-packages",
+    "optional-opencode-adapter",
+    "optional-claude-plugin-adapter"
+  ],
+  "state_directory": "nse-trader",
+  "router": "nse-trader",
+  "skills": [
+    {"id": "nse-trader", "command": null, "role": "router"},
+    {"id": "nse-trader-scanner", "command": "scanner", "entrypoint": "nse-trader-scanner/scripts/scan.py"},
+    {"id": "nse-trader-flows", "command": "flows", "entrypoint": "nse-trader-flows/scripts/flows.py"},
+    {"id": "nse-trader-news", "command": "news", "entrypoint": "nse-trader-news/scripts/news.py"},
+    {"id": "nse-trader-analyst", "command": "analyst", "entrypoint": "nse-trader-analyst/scripts/facts.py"},
+    {"id": "nse-trader-entry", "command": "entry", "entrypoint": "nse-trader-entry/scripts/entry.py"},
+    {"id": "nse-trader-exit", "command": "exit", "entrypoint": "nse-trader-exit/scripts/exit.py"},
+    {"id": "nse-trader-timemachine", "command": "timemachine", "entrypoint": "nse-trader-timemachine/scripts/timemachine.py"},
+    {"id": "nse-trader-budget", "command": "budget", "entrypoint": "nse-trader-budget/scripts/budget.py"},
+    {"id": "nse-trader-risk", "command": "risk", "entrypoint": "nse-trader-risk/scripts/risk.py"},
+    {"id": "nse-trader-broker", "command": "ticket", "entrypoint": "nse-trader-broker/scripts/ticket.py"},
+    {"id": "nse-trader-alerts", "command": "alerts", "entrypoint": "nse-trader-alerts/scripts/alerts.py"}
+  ]
+}

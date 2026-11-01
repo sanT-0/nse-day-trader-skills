@@ -1,0 +1,26 @@
+{
+  "name": "nse-day-trader-skills",
+  "description": "Portable skills for Indian NSE analysis, long-side trade planning, broker-neutral risk control, and manual order tickets.",
+  "version": "0.2.0",
+  "author": {
+    "name": "sanT-0",
+    "url": "https://github.com/sanT-0"
+  },
+  "homepage": "https://github.com/sanT-0/nse-day-trader-skills",
+  "repository": "https://github.com/sanT-0/nse-day-trader-skills",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "opencode",
+    "claude-skills",
+    "india",
+    "nse",
+    "broker-neutral",
+    "day-trading",
+    "nifty",
+    "risk-management",
+    "paper-trading",
+    "agent-skills"
+  ],
+  "skills": "./"
+}

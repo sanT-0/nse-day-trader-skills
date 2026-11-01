@@ -1,0 +1,17 @@
+{
+  "name": "my-broker-current-plan",
+  "cash_intraday": {
+    "rate": 0.0003,
+    "minimum": 0,
+    "maximum": 20
+  },
+  "cash_delivery": {
+    "flat": 0
+  },
+  "futures": {
+    "flat": 20
+  },
+  "options": {
+    "flat": 20
+  }
+}
