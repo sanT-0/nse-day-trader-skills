@@ -18,7 +18,7 @@ class StructureTests(unittest.TestCase):
                 cwd=tmp, capture_output=True, text=True, timeout=120,
             )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("12 skills", result.stdout)
+        self.assertIn("13 skills", result.stdout)
 
     def test_installer_dry_run_includes_router(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -29,7 +29,7 @@ class StructureTests(unittest.TestCase):
             )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("nse-trader ->", result.stdout)
-        self.assertIn("12 skills", result.stdout)
+        self.assertIn("13 skills", result.stdout)
 
     def test_platform_neutral_dispatcher(self):
         result = subprocess.run(

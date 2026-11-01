@@ -13,7 +13,8 @@ Never imply that any script places an order.
 
 | User goal | Load and use |
 |---|---|
-| “Analyze the Indian market today” | `nse-trader-scanner`, then `nse-trader-flows` |
+| “Analyze the Indian market today” | `nse-trader-market` |
+| Explain the market score in depth | `nse-trader-market`, then `nse-trader-flows` if needed |
 | Find stocks to watch | `nse-trader-scanner` |
 | Explain a move or check catalysts | `nse-trader-news` |
 | Review company results | `nse-trader-analyst` |
@@ -32,15 +33,16 @@ Load the selected skill by exact ID before following its workflow.
 
 For “analyze the market today”:
 
-1. Load `nse-trader-scanner` and scan Nifty 100 daily setups. During market
+1. Load `nse-trader-market` for index trend, Nifty breadth, India VIX, sector
+   rotation, FII/DII flow, score, confidence, and a dated snapshot label.
+2. Explain the score components and any missing/partial data. It is context,
+   not a forecast or trade instruction.
+3. If the user wants stock candidates, load `nse-trader-scanner`. During market
    hours, optionally run its intraday opening-range scan.
-2. Load `nse-trader-flows` and report FII/DII net cash flow, major bulk/block
-   deals, and delivery/turnover leaders.
-3. Explain breadth cautiously: the scanner is a setup scan, not a complete
-   advance/decline or macro-regime model.
-4. If the user wants specific candidates, load `nse-trader-news` for only the
+4. For detailed bulk/block and delivery activity, load `nse-trader-flows`.
+5. If the user wants specific catalysts, load `nse-trader-news` for only the
    selected tickers.
-5. Present a watchlist—not buy/sell commands.
+6. Present context or a watchlist—not buy/sell commands.
 
 If the market is closed, state the exact data/session date and call the result
 a last-completed-session review rather than live analysis.
@@ -48,7 +50,7 @@ a last-completed-session review rather than live analysis.
 ## Trade-planning workflow
 
 ```text
-scanner → news → entry → exit → timemachine → budget → risk
+market → scanner → news → entry → exit → timemachine → budget → risk
         → manual broker ticket → alerts
 ```
 

@@ -28,7 +28,7 @@ def usage(mapping: dict[str, Path]) -> None:
     print("Commands:")
     for name in sorted(mapping):
         print(f"  {name:<12} {mapping[name].relative_to(ROOT)}")
-    print("\nExample: python scripts/run.py scanner --mode daily --universe nifty100")
+    print("\nExample: python scripts/run.py market --universe nifty100")
 
 
 def main() -> int:

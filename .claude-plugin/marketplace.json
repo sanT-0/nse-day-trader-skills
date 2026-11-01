@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "nse-day-trader-skills",
-      "description": "NSE scanner, news, flows, earnings, entries, exits, simulation, sizing, risk gate, alerts, and broker-neutral manual tickets.",
+      "description": "Indian market overview, NSE scanner, news, flows, earnings, entries, exits, simulation, sizing, risk gate, alerts, and broker-neutral manual tickets.",
       "source": "./",
       "category": "productivity",
       "homepage": "https://github.com/sanT-0/nse-day-trader-skills"

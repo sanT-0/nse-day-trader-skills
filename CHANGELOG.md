@@ -2,6 +2,18 @@
 
 All notable changes follow a simplified Keep a Changelog format.
 
+## [0.3.0] - 2026-11-01
+
+### Added
+
+- `nse-trader-market` as the primary “Analyze the Indian market today” workflow
+- transparent 0–100 score across NIFTY trend, breadth, India VIX, BANK NIFTY,
+  sector participation, and FII/DII cash flow
+- provisional-live versus last-completed-session labels
+- breadth coverage, component coverage, confidence, source warnings, JSON and
+  Markdown reports
+- index-symbol support in the shared Yahoo adapter and offline scoring tests
+
 ## [0.2.0] - 2026-11-01
 
 ### Changed

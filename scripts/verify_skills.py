@@ -22,14 +22,15 @@ EXPECTED = {
     "nse-trader-entry": "entry.py",
     "nse-trader-exit": "exit.py",
     "nse-trader-flows": "flows.py",
+    "nse-trader-market": "market.py",
     "nse-trader-news": "news.py",
     "nse-trader-risk": "risk.py",
     "nse-trader-scanner": "scan.py",
     "nse-trader-timemachine": "timemachine.py",
 }
 ALLOWED_IMPORTS = {
-    "__future__", "argparse", "collections", "csv", "datetime", "email", "hashlib", "html",
-    "io", "json", "math", "nsemkt", "os", "random", "re", "sys", "time",
+    "__future__", "argparse", "collections", "concurrent", "csv", "datetime", "email", "hashlib", "html",
+    "io", "json", "math", "nsemkt", "os", "pathlib", "random", "re", "statistics", "sys", "time",
     "urllib", "xml",
 }
 
@@ -143,6 +144,19 @@ def verify() -> list[str]:
         count = len([line for line in path.read_text(encoding="utf-8-sig").splitlines() if line.strip()])
         if count < minimum:
             errors.append(f"scanner asset {name}: expected at least {minimum}, got {count}")
+
+    market_assets = ROOT / "nse-trader-market" / "assets"
+    for name, minimum in {"nifty50.txt": 50, "nifty100.txt": 100}.items():
+        path = market_assets / name
+        if not path.is_file():
+            errors.append(f"market asset missing: {name}")
+            continue
+        count = len([
+            line for line in path.read_text(encoding="utf-8-sig").splitlines()
+            if line.strip()
+        ])
+        if count < minimum:
+            errors.append(f"market asset {name}: expected at least {minimum}, got {count}")
 
     for metadata_path in (
         ROOT / ".claude-plugin" / "plugin.json",

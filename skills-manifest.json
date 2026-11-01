@@ -1,6 +1,6 @@
 {
   "name": "nse-day-trader-skills",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "MIT",
   "runtime": {
     "python": ">=3.9",
@@ -20,6 +20,7 @@
   "router": "nse-trader",
   "skills": [
     {"id": "nse-trader", "command": null, "role": "router"},
+    {"id": "nse-trader-market", "command": "market", "entrypoint": "nse-trader-market/scripts/market.py"},
     {"id": "nse-trader-scanner", "command": "scanner", "entrypoint": "nse-trader-scanner/scripts/scan.py"},
     {"id": "nse-trader-flows", "command": "flows", "entrypoint": "nse-trader-flows/scripts/flows.py"},
     {"id": "nse-trader-news", "command": "news", "entrypoint": "nse-trader-news/scripts/news.py"},

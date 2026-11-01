@@ -24,6 +24,12 @@ class LiveSourceTests(unittest.TestCase):
         self.assertGreater(quote["ltp"], 0)
         self.assertEqual(quote["currency"], "INR")
 
+    def test_yahoo_market_indices(self):
+        nifty = self.market.yahoo_chart("^NSEI", "1d", "3mo")
+        vix = self.market.yahoo_chart("^INDIAVIX", "1d", "3mo")
+        self.assertGreater(len(nifty["bars"]), 20)
+        self.assertGreater(len(vix["bars"]), 20)
+
     def test_nse_reference_sources(self):
         self.assertGreater(len(self.market.nse_symbols(refresh=True)), 1000)
         self.assertGreater(len(self.market.fo_lots(refresh=True)), 100)

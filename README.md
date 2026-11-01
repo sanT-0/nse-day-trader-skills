@@ -32,6 +32,7 @@ configurable broker profiles, and Indian statutory charge estimates.
 | Skill | Purpose |
 |---|---|
 | `nse-trader` | Router—start here when you do not know which skill to use |
+| `nse-trader-market` | NIFTY/BANK NIFTY trend, India VIX, breadth, sectors, FII/DII, and market-health score |
 | `nse-trader-scanner` | Scan Nifty 50/100/500 or NSE EQ shares for daily and opening-range setups |
 | `nse-trader-flows` | FII/DII cash flow, bulk/block deals and bhavcopy delivery leaders |
 | `nse-trader-news` | NSE announcements plus public news headlines for selected tickers |
@@ -50,7 +51,7 @@ configurable broker profiles, and Indian statutory charge estimates.
 git clone https://github.com/sanT-0/nse-day-trader-skills.git
 cd nse-day-trader-skills
 python scripts/run.py --list
-python scripts/run.py scanner --mode daily --universe nifty100 --top 10
+python scripts/run.py market
 ```
 
 The Python CLIs are the product core. They use only the standard library and
@@ -129,8 +130,8 @@ router skill's source directory.
 Start with natural language or an explicit skill:
 
 ```text
-@nse-trader Analyze the Indian market today. Scan Nifty 100, summarize the
-setups and FII/DII activity, and create a watchlist. Do not place orders.
+@nse-trader Analyze the Indian market today. Explain the score, breadth,
+volatility, sectors, and FII/DII activity. Do not place orders.
 ```
 
 For a trade plan:
@@ -145,13 +146,14 @@ For a trade plan:
 ## Workflow
 
 ```text
-scanner → flows/news → entry → exit → timemachine
+market → scanner → flows/news → entry → exit → timemachine
         → budget → risk → manual broker ticket → alerts
 ```
 
-For a daily market review, `scanner + flows` is the baseline. This is a setup
-and institutional-flow view—not a complete macro, breadth or valuation model.
-If the market is closed, the skills report the last completed session date.
+For a daily market review, start with `nse-trader-market`, then use the scanner
+only when stock candidates are needed. The overview is not a complete macro,
+valuation, or forecasting model. If the market is closed, it reports the last
+completed session date.
 
 ## India/NSE conventions
 

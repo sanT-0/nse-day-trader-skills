@@ -12,7 +12,7 @@ The repository has three separate layers:
 
 ```bash
 python scripts/run.py --list
-python scripts/run.py scanner --mode daily --universe nifty100 --top 10
+python scripts/run.py market --universe nifty100
 python scripts/run.py flows --days 5 --top 10
 ```
 

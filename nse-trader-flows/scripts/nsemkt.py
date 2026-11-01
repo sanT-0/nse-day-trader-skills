@@ -278,7 +278,7 @@ def http_json(url: str, timeout: int = 25, retries: int = 2):
 
 def yahoo_symbol(symbol: str) -> str:
     s = str(symbol).strip().upper()
-    if "." not in s:
+    if not s.startswith("^") and "." not in s:
         s += ".NS"
     return s
 

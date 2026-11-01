@@ -12,7 +12,8 @@ import urllib.request
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ASSETS = ROOT / "nse-trader-scanner" / "assets"
+SCANNER_ASSETS = ROOT / "nse-trader-scanner" / "assets"
+MARKET_ASSETS = ROOT / "nse-trader-market" / "assets"
 SOURCES = {
     "nifty50.txt": "https://nsearchives.nseindia.com/content/indices/ind_nifty50list.csv",
     "nifty100.txt": "https://nsearchives.nseindia.com/content/indices/ind_nifty100list.csv",
@@ -49,15 +50,22 @@ def main() -> int:
         except Exception as exc:
             print(f"ERROR {filename}: {exc}", file=sys.stderr)
             return 2
-        path = ASSETS / filename
         new_text = "\n".join(symbols) + "\n"
-        old_text = path.read_text(encoding="utf-8-sig") if path.exists() else ""
-        changed = old_text.replace("\r\n", "\n") != new_text
-        drift = drift or changed
-        print(f"{filename}: {len(symbols)} symbols ({'changed' if changed else 'unchanged'})")
-        if changed and not args.check:
-            with path.open("w", encoding="utf-8", newline="\n") as handle:
-                handle.write(new_text)
+        targets = [SCANNER_ASSETS / filename]
+        if filename in ("nifty50.txt", "nifty100.txt"):
+            targets.append(MARKET_ASSETS / filename)
+        for path in targets:
+            old_text = path.read_text(encoding="utf-8-sig") if path.exists() else ""
+            changed = old_text.replace("\r\n", "\n") != new_text
+            drift = drift or changed
+            print(
+                f"{path.relative_to(ROOT)}: {len(symbols)} symbols "
+                f"({'changed' if changed else 'unchanged'})"
+            )
+            if changed and not args.check:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with path.open("w", encoding="utf-8", newline="\n") as handle:
+                    handle.write(new_text)
     if args.check and drift:
         print("Reference-data drift detected; run without --check and review the diff.")
         return 1
