@@ -5,6 +5,8 @@ description: Broker-neutral Manual NSE Order Ticket. Accepts only an order that 
 
 # nse-trader-broker
 
+<p align="center"><img src="icon.png" alt="nse-trader-broker icon" width="220"></p>
+
 The final handoff to **manual broker entry**. It refuses tickets without a
 matching `PASS` in `risk_state.json`, then creates a broker-neutral `ticket.json`
 and human `ticket.md`. It can label any broker, log approval and record a fill

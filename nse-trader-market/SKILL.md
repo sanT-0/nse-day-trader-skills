@@ -5,6 +5,8 @@ description: Indian Market Overview. Analyzes NIFTY 50, BANK NIFTY, India VIX, N
 
 # nse-trader-market
 
+<p align="center"><img src="icon.png" alt="nse-trader-market icon" width="220"></p>
+
 Use this as the first step for **“Analyze the Indian market today.”** It joins
 index trend, stock participation, volatility, sector rotation, and institutional
 cash flow into a dated market-context report. It never places orders and its

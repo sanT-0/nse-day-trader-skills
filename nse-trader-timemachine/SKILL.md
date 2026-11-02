@@ -5,6 +5,8 @@ description: Time Machine for NSE trades. Replays a planned entry, stop and targ
 
 # nse-trader-timemachine
 
+<p align="center"><img src="icon.png" alt="nse-trader-timemachine icon" width="220"></p>
+
 Stress-tests the plan from `nse-trader-exit` against the ticker's own recent
 5-minute NSE bars. It reports target-first, stop-first and neither-by-15:15
 frequencies, average R and comparable historical triggers. It does **not**

@@ -5,6 +5,8 @@ description: Exit Planner for NSE. Sets your stop and target before you enter, u
 
 # nse-trader-exit
 
+<p align="center"><img src="icon.png" alt="nse-trader-exit icon" width="220"></p>
+
 Sets the stop and target **before** the entry. On NSE intraday (MIS) the
 position is squared off around 15:15, so every plan carries a flat-by time.
 Prices round to the NSE cash tick of Rs 0.05 (stop down, target up). Long side

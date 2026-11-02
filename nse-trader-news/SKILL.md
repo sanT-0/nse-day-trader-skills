@@ -5,6 +5,8 @@ description: News Monitor for Indian stocks. Tracks official NSE corporate annou
 
 # nse-trader-news
 
+<p align="center"><img src="icon.png" alt="nse-trader-news icon" width="220"></p>
+
 Checks two sources for an NSE watchlist:
 
 1. **NSE corporate announcements** — primary-source exchange filings and

@@ -5,6 +5,8 @@ description: Broker-neutral Budget Manager for NSE and F&O. Sizes every position
 
 # nse-trader-budget
 
+<p align="center"><img src="icon.png" alt="nse-trader-budget icon" width="220"></p>
+
 Turns a plan into a concrete quantity. It finds the **largest whole-share**
 (cash) or **whole-lot** (F&O) size that fits every limit with estimated charges
 inside max loss. The default `generic` profile assumes Rs 20 brokerage per

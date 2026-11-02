@@ -5,6 +5,8 @@ description: Indian Institutional Flow Monitor. Reads official NSE FII/DII cash 
 
 # nse-trader-flows
 
+<p align="center"><img src="icon.png" alt="nse-trader-flows icon" width="220"></p>
+
 Shows what the Indian market actually discloses at exchange level:
 
 - FII/FPI and DII aggregate cash-market buying, selling and net flow

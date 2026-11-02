@@ -35,19 +35,19 @@ configurable broker profiles, and Indian statutory charge estimates.
 
 | Skill | Purpose |
 |---|---|
-| `nse-trader` | Router—start here when you do not know which skill to use |
-| `nse-trader-market` | NIFTY/BANK NIFTY trend, India VIX, breadth, sectors, dated FII/DII freshness, and market-health score |
-| `nse-trader-scanner` | Scan Nifty 50/100/500 or NSE EQ shares for daily and opening-range setups |
-| `nse-trader-flows` | FII/DII cash flow with session-date freshness, bulk/block deals and bhavcopy delivery leaders |
-| `nse-trader-news` | NSE announcements plus public news headlines for selected tickers |
-| `nse-trader-analyst` | Quarterly revenue, profit, EPS and margin analysis with NSE fallback |
-| `nse-trader-entry` | Completed 5-minute opening-range or custom-level trigger |
-| `nse-trader-exit` | Stop, target, R multiple and flat-by planning |
-| `nse-trader-timemachine` | Recent-session replay and bootstrap simulation |
-| `nse-trader-budget` | Whole-share/whole-lot sizing with configurable broker charges |
-| `nse-trader-risk` | PASS/BLOCK gate for stops, R:R, daily risk, timing, duplicates and capital |
-| `nse-trader-broker` | Risk-approved portable manual ticket and local approval/fill log |
-| `nse-trader-alerts` | Once-only price, stop, target, opening-bell and flat-by reminders |
+| <img src="assets/icons/nse-trader.png" width="56"> `nse-trader` | Router—start here when you do not know which skill to use |
+| <img src="assets/icons/nse-trader-market.png" width="56"> `nse-trader-market` | NIFTY/BANK NIFTY trend, India VIX, breadth, sectors, dated FII/DII freshness, and market-health score |
+| <img src="assets/icons/nse-trader-scanner.png" width="56"> `nse-trader-scanner` | Scan Nifty 50/100/500 or NSE EQ shares for daily and opening-range setups |
+| <img src="assets/icons/nse-trader-flows.png" width="56"> `nse-trader-flows` | FII/DII cash flow with session-date freshness, bulk/block deals and bhavcopy delivery leaders |
+| <img src="assets/icons/nse-trader-news.png" width="56"> `nse-trader-news` | NSE announcements plus public news headlines for selected tickers |
+| <img src="assets/icons/nse-trader-analyst.png" width="56"> `nse-trader-analyst` | Quarterly revenue, profit, EPS and margin analysis with NSE fallback |
+| <img src="assets/icons/nse-trader-entry.png" width="56"> `nse-trader-entry` | Completed 5-minute opening-range or custom-level trigger |
+| <img src="assets/icons/nse-trader-exit.png" width="56"> `nse-trader-exit` | Stop, target, R multiple and flat-by planning |
+| <img src="assets/icons/nse-trader-timemachine.png" width="56"> `nse-trader-timemachine` | Recent-session replay and bootstrap simulation |
+| <img src="assets/icons/nse-trader-budget.png" width="56"> `nse-trader-budget` | Whole-share/whole-lot sizing with configurable broker charges |
+| <img src="assets/icons/nse-trader-risk.png" width="56"> `nse-trader-risk` | PASS/BLOCK gate for stops, R:R, daily risk, timing, duplicates and capital |
+| <img src="assets/icons/nse-trader-broker.png" width="56"> `nse-trader-broker` | Risk-approved portable manual ticket and local approval/fill log |
+| <img src="assets/icons/nse-trader-alerts.png" width="56"> `nse-trader-alerts` | Once-only price, stop, target, opening-bell and flat-by reminders |
 
 ## Quick start — no AI application required
 

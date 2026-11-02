@@ -5,6 +5,8 @@ description: Chart Scanner for NSE. Scans Nifty 50/100/500 or the full NSE equit
 
 # nse-trader-scanner
 
+<p align="center"><img src="icon.png" alt="nse-trader-scanner icon" width="220"></p>
+
 Scans Indian equities bar by bar and produces a ranked watchlist. It supports
 Nifty 50, Nifty 100, Nifty 500 and all NSE `EQ`-series shares. Data comes from
 Yahoo's NSE chart feed (`.NS`) and may be delayed, so always confirm prices in

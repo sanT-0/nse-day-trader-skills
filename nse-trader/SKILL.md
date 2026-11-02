@@ -5,6 +5,8 @@ description: Router for the portable NSE Day Trader skill pack. Use when a user 
 
 # NSE Trader
 
+<p align="center"><img src="icon.png" alt="nse-trader icon" width="220"></p>
+
 Route an Indian-market request to the smallest safe workflow. All times are
 IST, prices are INR, primary exchange data is NSE, and every broker handoff is manual.
 Never imply that any script places an order.
