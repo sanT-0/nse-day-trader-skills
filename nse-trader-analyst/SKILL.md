@@ -5,8 +5,6 @@ description: Indian Earnings Analyst. Reads consolidated quarterly revenue, net 
 
 # nse-trader-analyst
 
-<p align="center"><img src="icon.png" alt="nse-trader-analyst icon" width="220"></p>
-
 Reads reported Indian-company numbers quarter by quarter: revenue, net profit,
 EPS, operating margin and calculated net margin, with QoQ, YoY and trailing
 twelve months. Primary source is Screener.in's consolidated table. If parsing

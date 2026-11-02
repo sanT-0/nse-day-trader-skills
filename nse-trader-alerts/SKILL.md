@@ -5,8 +5,6 @@ description: Price and time alerts for NSE. Creates once-only alerts for a price
 
 # nse-trader-alerts
 
-<p align="center"><img src="icon.png" alt="nse-trader-alerts icon" width="220"></p>
-
 Persists one-shot alerts in your local `nse-trader/` workspace. Price checks use
 the free Yahoo NSE chart feed; time alerts understand IST, weekends and the
 official NSE 2026 holiday list. The script does not run in the background—your

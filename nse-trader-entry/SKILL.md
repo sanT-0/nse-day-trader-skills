@@ -5,8 +5,6 @@ description: Entry Timer for NSE. Reads free 5-minute NSE bars, builds the 09:15
 
 # nse-trader-entry
 
-<p align="center"><img src="icon.png" alt="nse-trader-entry icon" width="220"></p>
-
 Times a **long-side** NSE entry using completed 5-minute bars. By default it
 builds the 09:15–09:30 IST opening range and triggers only when a completed bar
 closes above its high with at least 1.2× the preceding ten bars' average

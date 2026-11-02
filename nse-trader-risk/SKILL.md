@@ -5,8 +5,6 @@ description: Broker-neutral Risk Manager for NSE. Checks every ticket against yo
 
 # nse-trader-risk
 
-<p align="center"><img src="icon.png" alt="nse-trader-risk icon" width="220"></p>
-
 The gate between a sized order and your broker. Prints **PASS** or **BLOCK**
 with the exact reason, and records every verdict so the day's risk adds up.
 No manual broker ticket is produced without a PASS from this skill.
