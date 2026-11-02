@@ -1,5 +1,9 @@
 # NSE Day Trader Skills
 
+<p align="center">
+  <img src="assets/nse-skills-logo.png" alt="NSE Skills — Indian Market Trading AI Skills" width="640">
+</p>
+
 [![tests](https://github.com/sanT-0/nse-day-trader-skills/actions/workflows/tests.yml/badge.svg)](https://github.com/sanT-0/nse-day-trader-skills/actions/workflows/tests.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
