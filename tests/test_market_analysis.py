@@ -72,7 +72,8 @@ class MarketAnalysisTests(unittest.TestCase):
                         "above_sma50_pct": 68.0},
             "sectors": {"positive_pct": 77.8, "average_change_pct": 0.9},
             "flows": {"fii_net_cr": 1_000.0, "dii_net_cr": 500.0,
-                      "combined_net_cr": 1_500.0},
+                      "combined_net_cr": 1_500.0, "data_date": "2026-10-30",
+                      "data_status": "PREVIOUS_SESSION"},
         }
         score = self.market.calculate_market_score(snapshot)
         self.assertGreaterEqual(score["score"], 75)

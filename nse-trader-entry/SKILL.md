@@ -55,6 +55,21 @@ inside your broker or an exchange-grade feed.
 - default minimum volume: 1.2× prior-ten-bar average
 - no new entry after 15:00; MIS positions should be flat by 15:15
 - long side only
+- **FII/DII data is not an entry trigger.** NSE publishes the daily aggregates
+  after market close, so any FII/DII figure is previous-session/end-of-day
+  context. When institutional figures appear in an entry plan, the planner
+  must also surface their `session date` and `freshness_status` (from
+  `fii_dii_meta` in `flows.json` / `market.json`) and:
+  - never interpret daily FII/DII data as live intraday flow, even when
+    `Trading sessions behind: 0` — that means "latest published session",
+    not "right now"
+  - warn explicitly when freshness is `DELAYED`, `STALE` or calendar-unverified
+  - avoid using unverified/unknown-freshness data as directional confirmation
+  - keep price/volume intraday signals (this skill's completed 5-minute bars)
+    separate from institutional end-of-day figures
+  - show the human session label (for example "Friday, 30 Oct 2026") because
+    freshness is judged in trading sessions — Friday data is normal on Monday
+    and after holidays, not stale
 
 ## Files
 

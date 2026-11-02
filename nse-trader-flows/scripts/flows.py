@@ -27,11 +27,14 @@ def as_float(value) -> float | None:
 
 
 def fii_dii() -> list[dict]:
-    data = nsemkt.http_json("https://www.nseindia.com/api/fiidiiTradeReact")
+    """Raw FII/DII rows plus a parseable ISO ``data_date`` per row (or None)."""
+    data = nsemkt.http_json(nsemkt.FIIDII_URL)
     out = []
     for row in data if isinstance(data, list) else []:
+        parsed = nsemkt.parse_nse_flow_date(row.get("date"))
         out.append({
             "date": row.get("date"),
+            "data_date": parsed.isoformat() if parsed else None,
             "category": row.get("category"),
             "buy_cr": as_float(row.get("buyValue")),
             "sell_cr": as_float(row.get("sellValue")),
@@ -140,6 +143,11 @@ def main() -> None:
         latest_flows = []
         notes.append(f"FII/DII endpoint unavailable: {e}")
     flows = merge_history(os.path.join(out_dir, "flows_history.json"), latest_flows, args.days)
+    # Metadata travels with the numbers: classify the newest published pair so
+    # previous-session/stale figures cannot be mistaken for live data.
+    meta = nsemkt.fii_dii_dataset(latest_flows or flows)
+    for warning in meta.get("warnings") or []:
+        notes.append(f"FII/DII: {warning}")
 
     try:
         bulk, block, deal_date = large_deals(args.top)
@@ -158,6 +166,7 @@ def main() -> None:
     payload = {
         "generated_ist": nsemkt.now_ist().isoformat(timespec="seconds"),
         "fii_dii": flows,
+        "fii_dii_meta": meta,
         "block_deals": block,
         "bulk_deals": bulk,
         "deal_date": deal_date,
@@ -168,11 +177,17 @@ def main() -> None:
     }
     path = nsemkt.save_json(os.path.join(out_dir, "flows.json"), payload)
 
-    print("FII / DII CASH FLOW (Rs crore)")
+    session_date = meta.get("data_date") or "UNKNOWN"
+    session_label = nsemkt.format_nse_flow_session(session_date) if meta.get("data_date") else "UNKNOWN"
+    status = meta.get("data_status") or "UNKNOWN"
+    print(f"FII / DII CASH FLOW (Rs crore) - Data Session: {session_label} ({status}; not live intraday data)")
     for row in flows:
         print(f"  {row.get('date',''):<12} {row.get('category',''):<8} "
               f"buy {row.get('buy_cr') or 0:>10,.2f}  sell {row.get('sell_cr') or 0:>10,.2f}  "
               f"net {row.get('net_cr') or 0:>+10,.2f}")
+    print(f"  {nsemkt.fii_dii_freshness_line(meta)}")
+    print("NOTE: NSE publishes daily FII/DII aggregates after market close; "
+          "treat them as broader market context, not live intraday institutional flow.")
     print(f"\nBULK DEALS ({deal_date or 'unavailable'})")
     for row in bulk[:args.top]:
         print(f"  {row['symbol']:<14} {row['side'] or '':<4} {row['quantity']:>10,} @ "

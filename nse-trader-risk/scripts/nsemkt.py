@@ -106,9 +106,11 @@ def nse_holidays(refresh: bool = False, allow_network: bool = False) -> dict[str
     """Return known NSE capital-market holidays, optionally refreshing cache.
 
     The bundled fallback is always included. The cache is stored under
-    ``./nse-trader/cache``. Network refresh is explicit except when
-    ``holiday_name`` encounters a year absent from both fallback and cache.
-    Set ``NSE_TRADER_OFFLINE=1`` to suppress every refresh attempt.
+    ``./nse-trader/cache``. Network refresh is explicit (including the rare
+    year-missing case in ``holiday_name``) and deliberately bounded: a short
+    timeout/attempt budget plus a week-long cache TTL means a data year unknown
+    to both fallback and cache costs at most one refresh per cache cycle. Set
+    ``NSE_TRADER_OFFLINE=1`` to suppress every refresh attempt.
     """
     merged = dict(HOLIDAYS)
     path = os.path.join(STATE_DIR, "cache", "nse_holidays.json")
@@ -129,7 +131,10 @@ def nse_holidays(refresh: bool = False, allow_network: bool = False) -> dict[str
     official: dict[str, str] = {}
     error = None
     try:
-        payload = http_json(HOLIDAY_SOURCE_URL, timeout=20, retries=1)
+        # Bounded on purpose: classification paths must never hang on a
+        # calendar refresh; a miss leaves merged data intact plus an error
+        # note in the cache.
+        payload = http_json(HOLIDAY_SOURCE_URL, timeout=8, retries=1)
         rows = payload.get("CM", []) if isinstance(payload, dict) else []
         for row in rows:
             day = _parse_nse_holiday_date(row.get("tradingDate"))
@@ -162,17 +167,44 @@ def holiday_name(d: dt.date | None = None, refresh: bool = False) -> str | None:
     return holidays.get(d.isoformat())
 
 
-def holiday_calendar_verified(year: int) -> bool:
-    """Whether fallback/cache contains at least one holiday for ``year``."""
-    holidays = nse_holidays()
-    if not any(key.startswith(f"{year:04d}-") for key in holidays):
-        holidays = nse_holidays(allow_network=True)
+def holiday_calendar_verified(year: int, allow_network: bool = True) -> bool:
+    """Whether fallback/cache contains at least one holiday for ``year``.
+
+    A coverage signal, not a certificate: a year whose calendar has never been
+    refreshed still returns ``False``. The first lookup is always local, and
+    only a locally-unverifiable year may trigger one bounded refresh attempt
+    (the pre-existing design; covered years never cause network traffic and
+    never write the cache). With ``allow_network=False`` the check is strictly
+    local — use that for paths, such as FII/DII freshness classification,
+    that must stay fast and offline-safe.
+    """
+    holidays = nse_holidays(allow_network=False)
+    if not any(key.startswith(f"{year:04d}-") for key in holidays) and allow_network:
+        holidays = nse_holidays(refresh=False, allow_network=True)
     return any(key.startswith(f"{year:04d}-") for key in holidays)
 
 
-def is_trading_day(d: dt.date | None = None) -> bool:
+def _calendar_year_coverage(years, holidays: dict[str, str] | None = None) -> dict[int, bool]:
+    """Per-year holiday coverage from the local calendar (fallback + cache)."""
+    source = holidays if holidays is not None else nse_holidays(allow_network=False)
+    return {
+        int(year): any(key.startswith(f"{int(year):04d}-") for key in source)
+        for year in years
+    }
+
+
+def is_trading_day(d: dt.date | None = None, holidays: dict[str, str] | None = None) -> bool:
+    """Weekday + not an NSE holiday.
+
+    Pass a local ``holidays`` map (fallback + cache) for network-free
+    classification of many days, e.g. FII/DII session walks.
+    """
     d = d or today_ist()
-    return d.weekday() < 5 and holiday_name(d) is None
+    if d.weekday() >= 5:
+        return False
+    if holidays is None:
+        return holiday_name(d) is None
+    return d.isoformat() not in holidays
 
 
 def next_trading_day(d: dt.date | None = None, include_today: bool = False) -> dt.date:
@@ -467,6 +499,358 @@ def fo_lots(refresh: bool = False) -> dict:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(lots, f)
     return lots
+
+
+# --------------------------------------------------------------------------
+# FII/DII daily cash flows: session-date metadata and freshness
+# --------------------------------------------------------------------------
+
+FIIDII_URL = "https://www.nseindia.com/api/fiidiiTradeReact"
+FIIDII_DATA_STATUSES = (
+    "LIVE", "CURRENT_SESSION", "PREVIOUS_SESSION", "END_OF_DAY", "STALE", "UNKNOWN",
+)
+# NSE fiidiiTradeReact is a daily aggregate published after market close. No
+# skill in this pack receives live intraday institutional flow, so only
+# CURRENT_SESSION/END_OF_DAY-style labels below are produced, and every value
+# is reported with its own session date.
+FIIDII_STATUS_NOTES = {
+    "LIVE": "live intraday activity from a source that genuinely publishes it",
+    "CURRENT_SESSION": "dated to the session in progress; provisional daily aggregate, not live tick-level flow",
+    "PREVIOUS_SESSION": "latest completed/published session; broader market context only",
+    "END_OF_DAY": "published after market close for that session; not live intraday flow",
+    "STALE": "older than the latest completed trading session; historical context only",
+    "UNKNOWN": "source date missing or unreliable; the session date is not assumed",
+}
+# calendar age is informational; trading-session distance is what matters.
+FIIDII_FRESHNESS_STATUSES = ("FRESH", "DELAYED", "STALE", "UNKNOWN")
+FIIDII_FRESHNESS_NOTES = {
+    "FRESH": "Latest available completed session",
+    "DELAYED": "Delayed - a newer completed trading session exists",
+    "STALE": "Stale - multiple completed trading sessions behind the latest",
+    "UNKNOWN": "Unknown - trading-session age cannot be confirmed",
+}
+
+
+def parse_nse_flow_date(value) -> dt.date | None:
+    """Parse NSE flow dates such as ``30-Oct-2026``, ``30 Oct 2026`` or ISO."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    for fmt in ("%d-%b-%Y", "%d %b %Y", "%d-%B-%Y", "%d %B %Y", "%Y-%m-%d"):
+        try:
+            return dt.datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def last_trading_day(d: dt.date | None = None, holidays: dict[str, str] | None = None) -> dt.date:
+    """Most recent trading day strictly before ``d`` (default: today).
+
+    Pass a local ``holidays`` map for network-free walks.
+    """
+    day = (d or today_ist()) - dt.timedelta(days=1)
+    for _ in range(31):
+        if is_trading_day(day, holidays):
+            return day
+        day -= dt.timedelta(days=1)
+    return day
+
+
+def _trading_sessions_between(
+    start_d: dt.date, end_d: dt.date, holidays: dict[str, str] | None = None,
+) -> list[dt.date] | None:
+    """Trading days in ``(start_d, end_d]``; ``None`` when the span is absurd.
+
+    Uses the exchange calendar via ``is_trading_day`` (weekends AND NSE
+    holidays — pass ``holidays``), so a Monday holiday or Diwali week is
+    counted correctly instead of by calendar days.
+    """
+    if (end_d - start_d).days > 400:
+        return None
+    days: list[dt.date] = []
+    cursor = start_d + dt.timedelta(days=1)
+    while cursor <= end_d:
+        if is_trading_day(cursor, holidays):
+            days.append(cursor)
+        cursor += dt.timedelta(days=1)
+    return days
+
+
+def format_nse_flow_session(value) -> str:
+    """Human trading-session label such as ``Friday, 30 Oct 2026``, else UNKNOWN."""
+    parsed = parse_nse_flow_date(value)
+    return parsed.strftime("%A, %d %b %Y") if parsed else "UNKNOWN"
+
+
+def fii_dii_freshness(data_date, now: dt.datetime | None = None) -> dict:
+    """Classify a daily FII/DII observation against real NSE trading sessions.
+
+    Returns ``data_date`` (ISO when parseable), ``market_session_date``,
+    ``latest_completed_session``, ``sessions_behind`` (completed trading
+    sessions between the data date and the latest completed session),
+    ``freshness_status`` (FRESH / DELAYED / STALE / UNKNOWN),
+    ``data_status``, ``is_live``, ``is_previous_session``,
+    ``calendar_verified`` and ``calendar_age_days`` plus warnings. Freshness
+    follows the exchange calendar (weekends AND NSE holidays), never calendar
+    days alone: Friday figures form the latest completed session on the
+    following Monday, and still so on the Tuesday after a Monday holiday.
+    The data is never assumed to be current: a missing or unparseable source
+    date is ``UNKNOWN``; a newer completed session than the data makes it
+    ``STALE`` data with ``DELAYED``/``STALE`` freshness. An unverified holiday
+    calendar is reported as ``UNKNOWN`` freshness, not silently trusted.
+    Classification is strictly local (bundled calendar + cache): no network
+    call is made on this path, so a data year unknown to the local calendar
+    degrades to ``UNKNOWN`` freshness instead of blocking on a refresh.
+    """
+    now = now or now_ist()
+    state = session_state(now).get("state") or "UNKNOWN"
+    today = now.date()
+    warnings: list[str] = []
+    parsed = parse_nse_flow_date(data_date)
+    # Classification must stay fast and offline-safe: use the LOCAL calendar
+    # (bundled fallback + cache) for every day/step walked here. The rare,
+    # bounded official refresh is session_state's responsibility; an
+    # unverified year surfaces as UNKNOWN freshness, never a silent assumption.
+    local_holidays = nse_holidays(allow_network=False)
+    trading_today = today.weekday() < 5 and today.isoformat() not in local_holidays
+    in_progress = state in ("OPEN", "SQUAREOFF")
+    post_close = trading_today and state == "POST_CLOSE"
+    # Most recent completed NSE trading session per the exchange calendar;
+    # today is completed only after the 15:30 IST close.
+    latest_completed = (today if post_close
+                        else last_trading_day(today, local_holidays))
+
+    if parsed is None:
+        parsed = None
+        data_status = "UNKNOWN"
+        warnings.append(
+            "FII/DII source date is missing or unparseable"
+            + (f" (raw value: {data_date!r})" if str(data_date or "").strip() else "")
+            + "; the session date is not assumed"
+        )
+    elif parsed > today:
+        data_status = "UNKNOWN"
+        warnings.append(
+            f"FII/DII date {parsed.isoformat()} is ahead of {today.isoformat()}; treated as UNKNOWN"
+        )
+    elif trading_today and parsed == today and in_progress:
+        data_status = "CURRENT_SESSION"
+        warnings.append(
+            "FII/DII aggregates are published after the session; a current-session "
+            "figure is provisional, not live intraday flow"
+        )
+    elif trading_today and parsed == today and state in ("PRE_MARKET", "PRE_OPEN"):
+        data_status = "UNKNOWN"
+        warnings.append(
+            "today's daily FII/DII aggregates do not exist before the market opens; treated as UNKNOWN"
+        )
+    elif post_close and parsed == today:
+        data_status = "END_OF_DAY"
+    elif parsed == latest_completed:
+        data_status = "PREVIOUS_SESSION"
+    elif parsed < latest_completed:
+        data_status = "STALE"
+        warnings.append(
+            f"FII/DII date {parsed.isoformat()} is older than the latest completed "
+            f"trading session ({latest_completed.isoformat()}); historical context only"
+        )
+    else:
+        data_status = "UNKNOWN"
+        warnings.append(
+            f"FII/DII date {parsed.isoformat()} does not match a recent trading session; treated as UNKNOWN"
+        )
+
+    # Trading-session distance (not calendar distance) relative to the latest
+    # completed session, per the NSE exchange calendar.
+    sessions_behind: int | None = None
+    if data_status not in ("UNKNOWN",) and parsed is not None and parsed <= today:
+        completed_between = _trading_sessions_between(parsed, latest_completed, local_holidays)
+        sessions_behind = None if completed_between is None else len(completed_between)
+        if completed_between is None:
+            warnings.append(
+                "FII/DII-to-latest-session gap exceeds ~one calendar year; "
+                "exact completed-session count is not computed"
+            )
+    calendar_age_days = (today - parsed).days if parsed is not None and parsed <= today else None
+
+    calendar_years = {latest_completed.year, today.year}
+    if parsed is not None:
+        calendar_years.add(parsed.year)
+    coverage = _calendar_year_coverage(calendar_years, local_holidays)
+    calendar_verified = all(coverage.values())
+    if not calendar_verified:
+        warnings.append(
+            "NSE trading calendar is not verified for the years involved "
+            + sorted(calendar_years).__repr__()
+            + "; freshness cannot be confirmed and is reported as UNKNOWN"
+        )
+
+    if data_status == "UNKNOWN" or not calendar_verified:
+        freshness_status = "UNKNOWN"
+    elif sessions_behind == 0:
+        freshness_status = "FRESH"
+    elif sessions_behind == 1:
+        freshness_status = "DELAYED"
+        warnings.append(
+            "FII/DII data is one completed trading session behind the latest "
+            "(delayed publication); use as context, not the freshest completed-session figure"
+        )
+    else:  # sessions_behind > 1, or not computed (year-long gap)
+        freshness_status = "STALE"
+        if sessions_behind:
+            warnings.append(
+                f"FII/DII data is {sessions_behind} completed trading sessions behind "
+                f"the latest completed session; historical context only"
+            )
+        else:
+            warnings.append(
+                "FII/DII data is far older than the latest completed trading session; "
+                "historical context only"
+            )
+
+    market_session = today if data_status in ("CURRENT_SESSION", "END_OF_DAY") else latest_completed
+    return {
+        "data_date": parsed.isoformat() if parsed else None,
+        "market_session_date": market_session.isoformat(),
+        "latest_completed_session": latest_completed.isoformat(),
+        "sessions_behind": sessions_behind,
+        "calendar_age_days": calendar_age_days,
+        "freshness_status": freshness_status,
+        "data_status": data_status,
+        # NSE publishes daily sums post-close; no live intraday feed exists here.
+        "is_live": data_status == "LIVE",
+        "is_previous_session": data_status in ("PREVIOUS_SESSION", "STALE"),
+        "calendar_verified": calendar_verified,
+        "calendar_years": sorted(coverage),
+        "calendar_verified_years": sorted(year for year, ok in coverage.items() if ok),
+        "session_note": FIIDII_STATUS_NOTES[data_status],
+        "freshness_note": FIIDII_FRESHNESS_NOTES[freshness_status],
+        "warnings": warnings,
+    }
+
+
+def _flow_float(value) -> float | None:
+    try:
+        return round(float(str(value).replace(",", "").strip()), 2)
+    except (TypeError, ValueError):
+        return None
+
+
+def fii_dii_dataset(rows, now: dt.datetime | None = None) -> dict:
+    """Normalize raw ``fiidiiTradeReact`` rows with their session metadata.
+
+    The date travels with the numbers: the returned payload never contains an
+    FII/DII net value without ``data_date``/``market_session_date``,
+    ``retrieved_at``, ``data_status``, ``is_live`` and ``is_previous_session``
+    so previous-session or stale figures cannot pass as live intraday flow.
+    ``fii_net_cr`` / ``dii_net_cr`` / ``combined_net_cr`` are kept as legacy
+    aliases (Rs crore) alongside the canonical ``fii_net`` / ``dii_net``.
+    """
+    now = now or now_ist()
+    warnings: list[str] = []
+    best: dict[str, dict] = {}
+    for row in (rows if isinstance(rows, list) else []):
+        if not isinstance(row, dict):
+            continue
+        category = str(row.get("category") or "").upper().strip().rstrip("*").strip()
+        if category.startswith("FII"):
+            key = "FII"
+        elif category.startswith("DII"):
+            key = "DII"
+        else:
+            continue
+        current = best.get(key)
+        if current is None or (parse_nse_flow_date(row.get("date")) or dt.date.min) > (
+            parse_nse_flow_date(current.get("date")) or dt.date.min
+        ):
+            best[key] = row
+    fii = best.get("FII") or {}
+    dii = best.get("DII") or {}
+
+    if not fii and not dii:
+        meta = fii_dii_freshness(None, now)
+        payload = {
+            "date": None,
+            **meta,
+            "retrieved_at": now.isoformat(timespec="seconds"),
+            "fii_net": None,
+            "dii_net": None,
+        }
+        payload["warnings"] = [*warnings, *meta["warnings"], "no FII/DII records returned by the source"]
+        fii_net = dii_net = None
+    else:
+        date_raw = fii.get("date") or dii.get("date")
+        meta = fii_dii_freshness(date_raw, now)
+        if fii.get("date") and dii.get("date") and str(fii.get("date")) != str(dii.get("date")):
+            warnings.append(
+                f"FII and DII rows carry different source dates "
+                f"({fii.get('date')!r} vs {dii.get('date')!r}); the newer row per category is used"
+            )
+        fii_net = _flow_float(fii.get("netValue"))
+        dii_net = _flow_float(dii.get("netValue"))
+        payload = {
+            "date": date_raw,
+            **meta,
+            "retrieved_at": now.isoformat(timespec="seconds"),
+            "fii_net": fii_net,
+            "dii_net": dii_net,
+            "fii_buy_cr": _flow_float(fii.get("buyValue")),
+            "fii_sell_cr": _flow_float(fii.get("sellValue")),
+            "dii_buy_cr": _flow_float(dii.get("buyValue")),
+            "dii_sell_cr": _flow_float(dii.get("sellValue")),
+        }
+        payload["warnings"] = [*warnings, *meta["warnings"]]
+
+    combined = None if fii_net is None and dii_net is None else round(
+        (fii_net or 0.0) + (dii_net or 0.0), 2
+    )
+    payload.update({
+        "combined_net_cr": combined,
+        # Legacy aliases used by earlier snapshots (Rs crore).
+        "fii_net_cr": fii_net,
+        "dii_net_cr": dii_net,
+    })
+    return payload
+
+
+def fii_dii_freshness_line(payload: dict) -> str:
+    """One-line freshness summary distinguishing calendar age from sessions."""
+    status = payload.get("freshness_status") or "UNKNOWN"
+    behind = payload.get("sessions_behind")
+    age = payload.get("calendar_age_days")
+    extras = ""
+    if payload.get("calendar_verified") is False:
+        extras += " | calendar: unverified"
+    return (
+        f"Freshness: {FIIDII_FRESHNESS_NOTES[status]}"
+        f" | Calendar age: {age if age is not None else 'unknown'} day(s)"
+        f" | Trading sessions behind: {behind if behind is not None else 'unknown'}"
+        f" | Live intraday flow: No{extras}"
+    )
+
+
+def fii_dii_display_lines(payload: dict) -> list[str]:
+    """Markdown lines where every FII/DII number carries its session date.
+
+    Values are never reported without a human-readable trading-session label,
+    the data status and the trading-session freshness summary.
+    """
+    label = format_nse_flow_session(payload.get("data_date") or payload.get("date"))
+    status = payload.get("data_status") or "UNKNOWN"
+    lines = [
+        f"- Data session: **{label}** (data_date {payload.get('data_date') or 'UNKNOWN'}; {status})",
+        f"- {fii_dii_freshness_line(payload)}",
+    ]
+    for name, key in (
+        ("FII/FPI net", "fii_net_cr"),
+        ("DII net", "dii_net_cr"),
+        ("Combined", "combined_net_cr"),
+    ):
+        value = payload.get(key)
+        shown = f"Rs {value:+,.2f} crore" if value is not None else "value unavailable"
+        lines.append(f"- {name}: {shown} | Session: {label}")
+    return lines
 
 
 # --------------------------------------------------------------------------

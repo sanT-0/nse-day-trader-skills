@@ -50,6 +50,27 @@ Missing optional components are excluded and weights are normalized over the
 available evidence. The report always shows `available_points` and each
 component's exact contribution.
 
+FII/DII carries extra rules because NSE publishes the daily aggregates after
+market close:
+
+- every FII/DII number is displayed with its session date, `data_date` and
+  `data_status` (`LIVE`, `CURRENT_SESSION`, `PREVIOUS_SESSION`, `END_OF_DAY`,
+  `STALE`, `UNKNOWN`) — never as a bare `FII Net: ₹X Cr` line
+- freshness is measured in **completed trading sessions** (`sessions_behind`
+  against `latest_completed_session`), not calendar days. Friday data on
+  Monday — or on the Tuesday after a Monday holiday — is the latest available
+  published session; do not call it stale because the calendar age is 3+ days
+- `freshness_status` (`FRESH`, `DELAYED`, `STALE`, `UNKNOWN`) reflects actual
+  trading-session distance: 0 sessions behind = FRESH, 1 = DELAYED, more =
+  STALE, unverified calendar or missing date = UNKNOWN
+- the figures are never labelled live; `is_live` is false because no skill in
+  this pack receives live intraday institutional flow
+- `DELAYED`/`STALE` (a newer completed session exists than the data date),
+  `UNKNOWN` (missing or unparseable source date), or an unverified holiday
+  calendar keeps the flows out of the score with a warning
+- the component detail states the session date, sessions behind, and that the
+  data is context only, not live intraday flow or an entry trigger
+
 | Score | Zone |
 |---:|---|
 | 75–100 | `RISK_ON` |
@@ -108,10 +129,12 @@ confirmed.
 ## Data sources and limitations
 
 - Yahoo chart JSON for indices, VIX, sectors, and constituent daily bars
-- NSE `fiidiiTradeReact` for institutional cash flows
+- NSE `fiidiiTradeReact` (daily aggregates published **after** the session;
+  previous-session/end-of-day context, never live intraday flow)
 - bundled Nifty constituent snapshots for breadth
 - quotes may be delayed; full-universe requests may have partial failures
-- FII/DII publication dates can lag the index snapshot
+- FII/DII publication dates can lag the index snapshot; stale or undated
+  FII/DII is excluded from the score rather than silently used
 - this is not a macro, valuation, derivatives-positioning, or forecasting model
 
 Educational tooling only. Verify all data before financial decisions.

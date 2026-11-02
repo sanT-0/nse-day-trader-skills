@@ -231,12 +231,34 @@ def calculate_market_score(snapshot: dict) -> dict:
         components.append(_component("Sector participation", 0, 10, False, "missing"))
 
     flows = snapshot.get("flows")
-    if flows:
+    if flows and (flows.get("data_status") in ("STALE", "UNKNOWN") or not flows.get("data_date")):
+        status = flows.get("data_status") or "UNKNOWN"
+        reason = "no reliable session date" if not flows.get("data_date") else status
+        components.append(_component(
+            "Institutional flows", 0, 5, False,
+            f"excluded: {reason} - undated/stale FII/DII must not influence the score"
+        ))
+    elif flows and flows.get("fii_net_cr") is not None:
         fii = float(flows.get("fii_net_cr") or 0.0)
         dii = float(flows.get("dii_net_cr") or 0.0)
         combined = float(flows.get("combined_net_cr") or 0.0)
         points = (2.5 if fii > 0 else 0) + (1 if dii > 0 else 0) + (1.5 if combined > 0 else 0)
-        components.append(_component("Institutional flows", points, 5, True, f"FII {fii:+,.0f} cr, DII {dii:+,.0f} cr"))
+        session = flows.get("data_date") or "UNKNOWN"
+        status = flows.get("data_status") or "UNKNOWN"
+        behind = flows.get("sessions_behind")
+        behind_txt = f"; {behind} completed session(s) behind" if isinstance(behind, int) else ""
+        components.append(_component(
+            "Institutional flows", points, 5, True,
+            f"FII {fii:+,.0f} cr, DII {dii:+,.0f} cr "
+            f"(session {session}; {status}{behind_txt}; context only, not live intraday flow)"
+        ))
+    elif flows:
+        status = flows.get("data_status") or "UNKNOWN"
+        session = flows.get("data_date") or "UNKNOWN"
+        components.append(_component(
+            "Institutional flows", 0, 5, False,
+            f"values unavailable; data session {session} ({status})"
+        ))
     else:
         components.append(_component("Institutional flows", 0, 5, False, "missing"))
 
@@ -316,34 +338,21 @@ def fetch_sectors(workers: int, errors: list[str]) -> dict | None:
     return calculate_sectors(rows)
 
 
-def _float(value) -> float:
-    try:
-        return float(str(value).replace(",", ""))
-    except (TypeError, ValueError):
-        return 0.0
-
-
 def fetch_flows(errors: list[str]) -> dict | None:
+    """Fetch the latest published FII/DII pair with its session metadata."""
     try:
-        data = nsemkt.http_json("https://www.nseindia.com/api/fiidiiTradeReact")
-        latest = {}
-        for row in data if isinstance(data, list) else []:
-            latest[str(row.get("category") or "").upper()] = row
-        fii = latest.get("FII/FPI") or latest.get("FII")
-        dii = latest.get("DII")
-        if not fii and not dii:
-            raise ValueError("no FII/DII records returned")
-        fii_net = _float((fii or {}).get("netValue"))
-        dii_net = _float((dii or {}).get("netValue"))
-        return {
-            "date": (fii or dii).get("date"),
-            "fii_net_cr": round(fii_net, 2),
-            "dii_net_cr": round(dii_net, 2),
-            "combined_net_cr": round(fii_net + dii_net, 2),
-        }
+        data = nsemkt.http_json(nsemkt.FIIDII_URL)
     except Exception as exc:
         errors.append(f"FII/DII: {exc}")
         return None
+    # The dataset keeps the date attached to the values (data_date,
+    # market_session_date, retrieved_at, data_status, is_live, ...).
+    flows = nsemkt.fii_dii_dataset(data)
+    for warning in flows.get("warnings") or []:
+        errors.append(f"FII/DII: {warning}")
+    if flows.get("fii_net_cr") is None and flows.get("dii_net_cr") is None:
+        return None
+    return flows
 
 
 def confidence(snapshot: dict, errors: list[str], scope_pct: float) -> str:
@@ -416,12 +425,17 @@ def build_markdown(snapshot: dict) -> str:
             lines.append(f"| {index} | {row['label']} | {row['change_1d_pct']:+.2f}% | {row['trend']} |")
     flows = snapshot.get("flows")
     if flows:
+        lines += ["", "## Institutional cash flow", ""]
+        # Every number carries its human-readable session date and the
+        # trading-session freshness summary (never calendar age alone).
+        lines.extend(nsemkt.fii_dii_display_lines(flows))
         lines += [
-            "", "## Institutional cash flow", "",
-            f"- Date: {flows['date']}",
-            f"- FII/FPI net: Rs {flows['fii_net_cr']:+,.2f} crore",
-            f"- DII net: Rs {flows['dii_net_cr']:+,.2f} crore",
-            f"- Combined: Rs {flows['combined_net_cr']:+,.2f} crore",
+            "",
+            "> FII/DII figures are published by NSE after the trading session. "
+            "They are previous-session/end-of-day market context, not live intraday institutional flow, "
+            "and are not a trigger for intraday entry decisions. Freshness is measured in completed "
+            "trading sessions, so Monday (or post-holiday) Friday data is the latest available "
+            "published session, not stale by calendar age.",
         ]
     lines += ["", "## Score components", "", "| Component | Points | Detail |", "|---|---:|---|"]
     for item in score["components"]:
@@ -433,6 +447,9 @@ def build_markdown(snapshot: dict) -> str:
         "", "## Limitations", "",
         "- Yahoo chart data can be delayed and live-session daily bars are provisional.",
         "- Breadth covers the selected bundled universe, not every listed NSE security.",
+        "- FII/DII cash flows are published by NSE after the trading session; every number "
+        "carries its session date and status (previous-session, end-of-day, stale or unknown) "
+        "and is context, not live intraday institutional flow or an entry trigger.",
         "- The score describes observed conditions; it is not a forecast or trade instruction.",
         "", "Educational tooling only; verify data before making financial decisions.",
     ]
@@ -534,6 +551,14 @@ def main() -> None:
     if indices.get("vix"):
         print(f"  INDIA VIX   : {indices['vix']['close']:,.2f} ({indices['vix']['change_1d_pct']:+.2f}%)")
     print(f"  breadth     : {breadth['advancers']}/{breadth['decliners']}/{breadth['unchanged']} A/D/U, {breadth['coverage_pct']:.1f}% coverage")
+    if flows and flows.get("fii_net_cr") is not None:
+        behind = flows.get("sessions_behind")
+        behind_txt = f", {behind} completed session(s) behind" if isinstance(behind, int) else ""
+        print(
+            f"  FII/DII     : {flows['fii_net_cr']:+,.0f} / {flows['dii_net_cr']:+,.0f} cr "
+            f"(session {flows.get('data_date') or 'UNKNOWN'}; {flows.get('data_status')}"
+            f"{behind_txt}; context only)"
+        )
     print(f"  interpretation: {snapshot['interpretation']}")
     if errors:
         print(f"  warnings    : {len(errors)} (see report)")

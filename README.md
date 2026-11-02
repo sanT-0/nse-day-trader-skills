@@ -32,9 +32,9 @@ configurable broker profiles, and Indian statutory charge estimates.
 | Skill | Purpose |
 |---|---|
 | `nse-trader` | Router—start here when you do not know which skill to use |
-| `nse-trader-market` | NIFTY/BANK NIFTY trend, India VIX, breadth, sectors, FII/DII, and market-health score |
+| `nse-trader-market` | NIFTY/BANK NIFTY trend, India VIX, breadth, sectors, dated FII/DII freshness, and market-health score |
 | `nse-trader-scanner` | Scan Nifty 50/100/500 or NSE EQ shares for daily and opening-range setups |
-| `nse-trader-flows` | FII/DII cash flow, bulk/block deals and bhavcopy delivery leaders |
+| `nse-trader-flows` | FII/DII cash flow with session-date freshness, bulk/block deals and bhavcopy delivery leaders |
 | `nse-trader-news` | NSE announcements plus public news headlines for selected tickers |
 | `nse-trader-analyst` | Quarterly revenue, profit, EPS and margin analysis with NSE fallback |
 | `nse-trader-entry` | Completed 5-minute opening-range or custom-level trigger |
@@ -155,6 +155,58 @@ only when stock candidates are needed. The overview is not a complete macro,
 valuation, or forecasting model. If the market is closed, it reports the last
 completed session date.
 
+## FII/DII freshness — the session date always travels with the data
+
+NSE publishes the daily FII/DII aggregates **after** the market session. These
+daily sums are never live intraday institutional flow, so every FII/DII number
+in this toolkit carries its own trading-session date and freshness — it can
+never appear as a bare `FII Net: ₹X Cr` line. For example:
+
+```text
+FII / DII CASH FLOW (Rs crore) - Data Session: Friday, 30 Oct 2026 (PREVIOUS_SESSION; not live intraday data)
+  30-Oct-2026  DII      buy  16,643.55  sell  17,461.06  net    -817.51
+  30-Oct-2026  FII/FPI  buy  20,564.02  sell  16,965.48  net  +3,598.54
+  Freshness: Latest available completed session | Calendar age: 3 day(s) | Trading sessions behind: 0 | Live intraday flow: No
+```
+
+In `market.md` the same guarantee holds per value:
+
+```text
+- Data session: **Friday, 30 Oct 2026** (data_date 2026-10-30; PREVIOUS_SESSION)
+- Freshness: Latest available completed session | …
+- FII/FPI net: Rs +1,250.00 crore | Session: Friday, 30 Oct 2026
+- DII net: Rs +850.00 crore | Session: Friday, 30 Oct 2026
+```
+
+Key rules implemented across `market` and `flows`:
+
+- **Freshness counts completed NSE trading sessions, not calendar days.** Friday
+  data on Monday — or on the Tuesday after a Monday holiday — is the latest
+  available published session (`Trading sessions behind: 0`); it is not called
+  stale merely because it is 3–4 calendar days old.
+- **Statuses travel with every value** in `flows.json`/`market.json`:
+  `data_date`, `market_session_date`, `latest_completed_session`,
+  `sessions_behind`, `retrieved_at`, `data_status` (`LIVE`,
+  `CURRENT_SESSION`, `PREVIOUS_SESSION`, `END_OF_DAY`, `STALE`, `UNKNOWN`),
+  `freshness_status` (`FRESH`, `DELAYED`, `STALE`, `UNKNOWN`), `is_live`
+  (always false here) and `is_previous_session`.
+- **`DELAYED`/`STALE`/`UNKNOWN` data cannot silently influence anything:**
+  stale or undated flows are excluded from the market-health score with a
+  warning, and agents must warn on delayed/stale/unverified data and never
+  treat it as directional confirmation for an intraday entry.
+- **Missing or unreliable dates are never assumed** — the session date stays
+  `UNKNOWN` with an explicit warning, instead of silently looking current.
+- **An unverified holiday calendar degrades to `UNKNOWN` freshness** rather
+  than a silent guess; classification itself is strictly local (bundled
+  2026 calendar + cached official NSE holiday master) and makes no network
+  calls.
+
+Agents follow the same contract via the `nse-trader`, `nse-trader-market`,
+`nse-trader-flows` and `nse-trader-entry` skill instructions: show the session
+date beside every FII/DII figure, quote it as broader market context ("data
+shown is from the latest completed/published session"), and keep those
+end-of-day figures separate from intraday price/volume signals.
+
 ## Complete skill usage guide
 
 The examples below use the platform-neutral dispatcher from the repository
@@ -207,7 +259,8 @@ only one index hides that context.
 - India VIX level and direction
 - Nifty 50/100 advances, declines, 20DMA/50DMA participation, highs and lows
 - nine Nifty sector indices
-- FII/FPI and DII cash flow
+- FII/FPI and DII cash flow, with per-value session date and completed-session
+  freshness (`sessions_behind`); stale/undated flows are excluded from the score
 - data coverage, date alignment, warnings, and confidence
 
 **Agent prompt:**
@@ -277,10 +330,17 @@ and delivery leaders.
 python scripts/run.py flows --days 5 --top 10
 ```
 
-**Outputs:** `flows.json` and a locally accumulated FII/DII history.
+Every FII/DII figure is printed with its own trading-session date and a
+freshness line (`Freshness: … | Trading sessions behind: N | Live intraday
+flow: No`). See the [FII/DII freshness](#fiidii-freshness--the-session-date-always-travels-with-the-data)
+section for the status meanings.
+
+**Outputs:** `flows.json` (including the structured `fii_dii_meta` freshness
+block) and a locally accumulated FII/DII history.
 
 **Limit:** High delivery can represent accumulation or distribution; it does
-not reveal intent by itself.
+not reveal intent by itself. Daily FII/DII aggregates are published after the
+session — broader market context, never live intraday flow.
 
 ---
 
@@ -543,6 +603,7 @@ push notifications. A scheduler or agent must execute `check` periodically.
 | File | Created by | Used by |
 |---|---|---|
 | `market.json` / `market.md` | market | user, router, scanner workflow |
+| `flows.json` | flows | user, agent context (carries `fii_dii_meta`: data/`market_session_date`, `latest_completed_session`, `sessions_behind`, `freshness_status`, `data_status`, `is_live`) |
 | `watchlist.json` | scanner | news, entry, user |
 | `news.json` | news | user and trade review |
 | `facts.json` / `facts.md` | analyst | user and earnings review |
@@ -668,7 +729,7 @@ journal, or agent to consume the same reviewed plan without broker credentials.
 | F&O lots | NSE `fo_mktlots.csv` |
 | Holidays | NSE holiday-master API plus offline fallback |
 | Announcements | NSE corporate-announcements API |
-| FII/DII | NSE `fiidiiTradeReact` |
+| FII/DII | NSE `fiidiiTradeReact` (daily aggregate published after market close; every value carries its session date and freshness) |
 | Bulk/block deals | NSE capital-market large-deal snapshot |
 | Delivery percentage | NSE full bhavcopy |
 | OHLCV/quotes | Yahoo chart JSON (`.NS`), potentially delayed |
